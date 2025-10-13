@@ -14,7 +14,7 @@ This site hosts my **personal projects**, and **technical documentation**.
 
 ## 🧰 Software & Tools
 
-- [DolphinDB Plugins](/plugins/)
+- [DolphinDB Plugins](/docs/ddbPlugin/)
 
 ---
 
