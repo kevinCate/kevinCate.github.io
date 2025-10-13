@@ -1,3 +1,10 @@
-title: DolphinDB Plugin RedisCluster
-markdown: kramdown
+title: uplee's personal blog
+description: uplee的个人主页
 theme: minima
+markdown: kramdown
+encoding: "utf-8"
+
+readme_index:
+  enabled: false        # 禁用 README 当首页
+titles_from_headings:
+  enabled: false        # 避免主题再从 H1 抽标题导致重复
