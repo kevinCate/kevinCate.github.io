@@ -13,3 +13,5 @@ This site hosts my **personal projects**, and **technical documentation**.
 - **Email:** uplee@pku.edu.cn  
 - **GitHub:** [kevincate](https://github.com/kevincate) 
 - **wechat:** 19299232187
+- **zhihu:** [uplee](https://www.zhihu.com/people/uplee-70)
+
