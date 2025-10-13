@@ -1,6 +1,6 @@
 ---
-layout: page
-title: Kevin Cate
+layout: noheader
+title: uplee
 permalink: /
 ---
 
