@@ -8,3 +8,9 @@ readme_index:
   enabled: false        # 禁用 README 当首页
 titles_from_headings:
   enabled: false        # 避免主题再从 H1 抽标题导致重复
+defaults:
+  -
+    scope:
+      path: ""     # all files
+    values:
+      layout: noheader
