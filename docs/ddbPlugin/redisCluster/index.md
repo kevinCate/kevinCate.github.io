@@ -1,10 +1,10 @@
 # DolphinDB redisCluster 插件使用说明
 
-通过 DolphinDB 的 redisCluster 插件，用户可以连接到 Redis Cluster 集群。只需连接任意一个节点即可完成集群发现与路由。插件基于 hash tag 或 key 自动分槽并路由。批量接口支持 pipeline 与多线程以提高吞吐。redisCluster 插件基于 hiredis 库和 redis-plus-plus 库开发。
+通过 DolphinDB 的 redisCluster 插件，用户可以连接到 Redis Cluster 集群。客户端只需连接任意一个节点，即可自动发现集群中的所有节点，并根据 key 的 hash 或 hash tag 将请求路由到对应槽位。批量接口支持 pipeline 与多线程，以提高吞吐量。该插件基于 hiredis 库和 redis-plus-plus 库开发。
 
 注意: 
-- **目前该插件只支持 Redis Cluster, 暂不支持单实例 Redis。** 针对单实例 redis 的连接和操作请参考 DolphinDB 官方 [redis 插件](https://docs.dolphindb.cn/zh/plugins/redis.html)。
-- 在多线程并发、跨作业并发的使用场景下，如果共用同一个 `connect` 创建的 Redis Cluster的连接句柄， 为避免线程安全、因资源不足导致的长阻塞/死锁问题，建议保证 **poolSize ≥ 跨作业并发任务数 × 单作业 numThreads + 2**。
+- **目前该插件只支持 Redis Cluster，暂不支持单实例 Redis。** 针对单实例 Redis 的连接和操作请参考 DolphinDB 官方 [redis 插件](https://docs.dolphindb.cn/zh/plugins/redis.html)。
+- 在多线程并发、跨作业并发场景下，如果多个线程共用同一个 `connect` 创建的 Redis Cluster 的连接句柄， 可能会出现线程安全问题，或者因资源不足导致长时间阻塞或死锁。因此，建议设置 **poolSize ≥ 跨作业并发任务数 × 单作业 numThreads + 2**。
 
 ## 在插件市场安装插件
 
@@ -29,13 +29,6 @@ installPlugin("redisCluster")
 loadPlugin("redisCluster")
 ```
 
-- 或者在本地路径加载
-
-```
-loadPlugin("/path/to/PluginRedisCluster.txt")
-
-```
-
 ## 函数接口
 
 ### connect
@@ -43,18 +36,23 @@ loadPlugin("/path/to/PluginRedisCluster.txt")
 **语法**
 
 ```
-redisCluster::connect(host, port, [password=""], [poolSize=3], [waitTimeoutMs=100])
+redisCluster::connect(host, port, [password=""], [poolSize=3], [waitTimeoutMs=500])
 ```
 **详情**
 
-通过任意一个节点连接到 Redis Cluster 并返回连接句柄。
+创建一个 Redis Cluster 的连接。
 
 **参数**
-- host STRING 标量。目标节点 IP 或主机名。
-- port INT 标量。目标端口。
-- password STRING 标量。可选。认证密码。注意：**如设置密码, 所有节点应使用相同密码**。
-- poolSize INT 标量。可选。配置连接池大小, 默认 3。
-- waitTimeoutMs INT 标量。可选。连接池借出连接时的最长等待时间（毫秒），默认 100；超过该时间仍无可用连接将抛出超时异常。设置 wait_timeout <=0 表示一直等。
+
+**host** STRING 标量。目标节点 IP 或主机名。
+
+**port** INT 标量。目标端口。 
+
+**password** STRING 标量。可选。认证密码。注意：**如设置密码，所有节点应使用相同密码**。
+
+**poolSize** INT 标量。可选。配置连接池大小，默认 3。需设置 ≤ 8192。
+
+**waitTimeoutMs** INT 标量。可选。连接池借出连接时的最长等待时间（毫秒），默认 500；超过该时间仍无可用连接将抛出超时异常。设置 waitTimeoutMs <= 0 表示一直等。需设置 ≤ 600000（10 min）。
 
 **返回值**
 
@@ -86,13 +84,16 @@ redisCluster::run(conn, routeKey, argv)
 在 routeKey 指定的路由节点执行任意 Redis 命令。
 
 注意:
-- 如果 Redis Cluster 设置有密码，需要在运行`redisCluster::connect`时指定密码来获取权限。返回值可以是 Redis 可以返回的任何数据类型，如 string, list, 或 set等。
+- 如果 Redis Cluster 设置有密码，需要在运行`redisCluster::connect`时指定密码来获取权限。
 - run 只依据 routeKey 路由。若命令包含多个 key，请确保这些 key 共用相同 hash tag。
-- argv 命令向量长度不能超过4096。
+
 **参数**
-- conn 通过 redisCluster::connect 获得的 Redis Cluster 连接句柄。
-- routeKey STRING 标量。可以是 hash tag 或任意代表路由的 key。形如 "tag=xxx", "tag:xxx", "key=xxx" 或 "key:xxx" 也可。例如，"tag=good{morning}", "tag:{morning}", "key=morning" 或 "morning" 的路由节点相同。
-- argv STRING 向量。命令及其参数，形如 ["HSET", "profile:{user1}", "name", "kevin"]。
+
+**conn** 通过 redisCluster::connect 获得的 Redis Cluster 连接句柄。
+
+**routeKey** STRING 标量。可以是 hash tag 或任意 key。例如，"tag=good{morning}"，"tag:{morning}"，"key={morning}"，"key:{morning}"", "morning"或 {morning} 的路由节点相同。
+
+**argv** STRING 向量。命令及其参数，形如 ["HSET", "profile:{user1}", "name", "kevin"]。长度不能超过4096。
 
 **返回值**
 
@@ -119,14 +120,17 @@ redisCluster::set(conn, key, value, [ttlSec=0])
 
 **详情**
 
-设置 STRING 键的值。
+设置键值对。
 
 **参数**
 
-- conn 连接句柄。
-- key STRING 标量。
-- value STRING 标量。
-- ttlSec INT 标量。可选。过期时间（秒数），默认 0，表示不设置过期。
+**conn** 连接句柄。 
+
+**key** STRING 标量。
+
+**value** STRING 标量。
+
+**ttlSec** INT 标量。可选。过期时间（秒数），默认 0，表示不设置过期。
 
 **返回值**
 
@@ -149,14 +153,15 @@ redisCluster::get(conn, key)
 
 **详情**
 
-读取 STRING 值。自动路由到 key 所在槽。
+获取指定键对应的值。
 
-注意：只支持普通 STRING 键值对。如果尝试获取其他类型的 key，例如 Hash key， 则会报 WRONGTYPE 的错误。
+注意：只支持普通键值对。如果尝试获取其他类型的键值对，例如 Hash key，则会报 WRONGTYPE 的错误。
 
 **参数**
  
-- conn 连接句柄。
-- key STRING 标量。支持使用 hash tag。
+**conn** 连接句柄。
+
+**key** STRING 标量。支持使用 hash tag。
 
 **返回值**
 
@@ -179,18 +184,22 @@ redisCluster::batchSet(conn, keys, values, [batchWin=2048], [numThreads=1])
 
 **详情**
 
-批量 SET。自动分槽并使用 pipeline 与多线程（如指定）并发执行。
+批量设置键值对。自动分槽并使用 pipeline 与多线程（如指定）并发执行。
 当 keys 与 values 为标量时退化为单次 SET。
 
-注意：建议对相关键使用相同 hash tag 或同槽（slot）运行该命令，以最大化单路管线效率。
+注意：建议对包含相同 hash tag 或同槽（slot）的键运行该命令，以最大化单路管线效率。
 
 **参数**
 
-- conn 连接句柄。
-- keys STRING 标量或向量。
-- values STRING 标量或向量。
-- batchWin INT 标量。每次 pipeline 中的命令数。默认 2048。
-- numThreads INT 标量。并发线程数。默认 1，即不开启多线程。
+**conn** 连接句柄。 
+
+**keys** STRING 标量或向量。
+
+**values** STRING 标量或向量。
+
+**batchWin** INT 标量。可选。每次 pipeline 中的命令数。默认 2048。需设置 ≤ 64000。
+
+**numThreads** INT 标量。可选。并发线程数。默认 1，即不开启多线程。需设置 ≤ 4096。
 
 **返回值**
 
@@ -214,17 +223,21 @@ redisCluster::batchHashSet(conn, ids, fieldData, [batchWin=2048], [numThreads=1]
 
 **详情**
 
-批量 HSET。每行写一个 key 的多字段。字段名来自 fieldData 的列名，字段值来自对应列名内的值。
+批量执行 Redis 的 HSET 操作。ids 中每个元素是一个键，对应 fieldData 中相应的行。字段名来自 fieldData 的列名，字段值来自对应列名内的值。
 
-注意：建议对相关键使用相同 hash tag 或同槽（slot）运行该命令，以最大化单路管线效率。
+注意：建议对包含相同 hash tag 或同槽（slot）的键运行该命令，以最大化单路管线效率。
 
 **参数**
 
-- conn 连接句柄。
-- ids STRING 向量。每行对应的一个 key。
-- fieldData 表。所有列必须为 STRING。
-- batchWin INT 标量。每次 pipeline 中的命令数。默认 2048。
-- numThreads INT 标量。并发线程数。默认 1，即不开启多线程。
+**conn** 连接句柄。
+
+**ids** STRING 向量。fieldData 中每行对应的键。
+
+**fieldData** 表。所有列必须为 STRING。每列列名作为 Redis HSET 中的 field，值作为 HSET 中的 value。设置列数 ≤ 1024。
+
+**batchWin** INT 标量。可选。每次 pipeline 中的命令数。默认 2048。需设置 ≤ 64000。
+
+**numThreads** INT 标量。可选。并发线程数。默认 1，即不开启多线程。需设置 ≤ 4096。
 
 **返回值**
 
@@ -249,14 +262,15 @@ redisCluster::batchGet(conn, keys)
 
 **详情**
 
-批量 GET。将键值按 hash tag 或槽分组并分别对每组使用 MGET。
+批量获取指定键对应的值。
 
-注意：建议对相关键使用相同 hash tag 或同槽（slot）运行该命令，以最大化单路管线效率。
+注意：建议对包含相同 hash tag 或同槽（slot）的键运行该命令，以最大化单路管线效率。
 
 **参数**
 
-- conn 连接句柄。
-- keys STRING 向量，键向量。
+**conn** 连接句柄。
+
+**keys** STRING 向量，要获取的键向量。
 
 **返回值**
 
@@ -279,19 +293,24 @@ redisCluster::batchPush(conn, keys, values, [rightPush=true], [batchWin=2048], [
 
 **详情**
 
-批量 RPUSH 或 LPUSH。每个 key 对应一个 STRING 向量作为待推入元素。
+批量执行 Redis 的 RPUSH 或 LPUSH 操作。keys 中每个键对应一个 values 中字符串向量。
 rightPush 为 true 执行 RPUSH，否则 LPUSH。
 
-注意：建议对相关键使用相同 hash tag 或同槽（slot）运行该命令，以最大化单路管线效率。
+注意：建议对包含相同 hash tag 或同槽（slot）的键运行该命令，以最大化单路管线效率。
 
 **参数**
 
-- conn 连接句柄。
-- keys STRING 向量。
-- values STRING 向量。
-- rightPush BOOL 标量。默认 true。
-- batchWin INT 标量。每次 pipeline 中的命令数。默认 2048。
-- numThreads INT 标量。并发线程数。默认 1，即不开启多线程。
+**conn** 连接句柄。
+
+**keys** 要设置的键，为 STRING 类型向量。
+
+**values** 要设置的值，为一个元组，其元素必须是 STRING 类型向量。
+
+**rightPush** BOOL 标量。可选。默认 true。
+
+**batchWin** INT 标量。可选。每次 pipeline 中的命令数。默认 2048。需设置 ≤ 64000。
+
+**numThreads** INT 标量。可选。并发线程数。默认 1，即不开启多线程。需设置 ≤ 4096。
 
 **返回值**
 
@@ -315,16 +334,21 @@ redisCluster::batchDel(conn, keys, [batchWin=2048], [numThreads=1], [useUnlink=t
 
 **详情**
 
-批量删除 key。按组执行 DEL。 useUnlink 为 true 时使用 UNLINK 异步删除。
+批量删除键值对。useUnlink 设置为 true 时执行异步删除。
 
-注意：建议对相关键使用相同 hash tag 或同槽（slot）运行该命令，以最大化单路管线效率。
+注意：建议对包含相同 hash tag 或同槽（slot）的键运行该命令，以最大化单路管线效率。
 
 **参数**
-- conn 连接句柄。
-- keys STRING 向量。
-- batchWin INT 标量。每次 pipeline 中的命令数。默认 2048。
-- numThreads INT 标量。并发线程数。默认 1，即不开启多线程。
-- useUnlink BOOL 标量。是否开启异步删除。默认 true。
+
+**conn** 连接句柄。
+
+**keys** STRING 向量。要删除的键向量。
+
+**batchWin** INT 标量。可选。每次 pipeline 中的命令数。默认 2048。需设置 ≤ 64000。
+
+**numThreads** INT 标量。可选。并发线程数。默认 1，即不开启多线程。需设置 ≤ 4096。
+
+**useUnlink** BOOL 标量。可选。是否开启异步删除。默认 true。
 
 **返回值**
 
@@ -351,7 +375,7 @@ redisCluster::release(conn)
 
 **参数**
 
-conn 通过 connect 创建的 Redis Cluster 连接句柄。
+**conn** 通过 connect 创建的 Redis Cluster 连接句柄。
 
 **示例**
 
@@ -365,7 +389,7 @@ redisCluster::release(conn)
 **语法**
 
 ```
-releaseAll()
+redisCluster::releaseAll()
 ```
 
 **详情**
@@ -392,7 +416,7 @@ redisCluster::getHandle(token)
 
 **参数**
 
-token STRING 标量。句柄标识。通过 `redis::getHandleStatus` 返回表中的第一列得知，用于唯一标识一个 Redis Cluster 连接。
+**token** STRING 标量。句柄标识。通过 `redisCluster::getHandleStatus` 返回表中的第一列得知，用于唯一标识一个 Redis Cluster 连接。
 
 **返回值**
 
@@ -418,7 +442,7 @@ redisCluster::getHandleStatus()
 
 **返回值**
 
-返回表。列名为 token, address, createdTime。
+返回表。列名为 token，address，createdTime。
 
 - token 列是该连接的唯一标识，可通过 redisCluster::getHandle(token) 来获取句柄。
 - address 是用来建立 Redis Cluster 连接的节点的 "ip:port" 地址。
@@ -427,13 +451,13 @@ redisCluster::getHandleStatus()
 **示例**
 
 ```
-status = redis::getHandleStatus()
+status = redisCluster::getHandleStatus()
 ```
 
 ## 使用示例
 
 ```
-loadPlugin("path/to/PluginRedisCluster.txt");
+loadPlugin("redisCluster");
 go
 
 try { unsubscribeTable(tableName=`table1, actionName=`testRedisClusterPlugin) } catch(ex) { print ex }
