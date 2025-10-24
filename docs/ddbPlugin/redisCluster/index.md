@@ -50,9 +50,9 @@ redisCluster::connect(host, port, [password=""], [poolSize=3], [waitTimeoutMs=50
 
 **password** STRING 标量。可选。认证密码。注意：**如设置密码，所有节点应使用相同密码**。
 
-**poolSize** INT 标量。可选。配置连接池大小，默认 3。需设置 ≤ 8192。
+**poolSize** INT 标量。可选。配置连接池大小，默认 3。取值必须小于等于 8192。
 
-**waitTimeoutMs** INT 标量。可选。连接池借出连接时的最长等待时间（毫秒），默认 500；超过该时间仍无可用连接将抛出超时异常。设置 waitTimeoutMs <= 0 表示一直等。需设置 ≤ 600000（10 min）。
+**waitTimeoutMs** INT 标量。可选。连接池借出连接时的最长等待时间（毫秒），默认 500；超过该时间仍无可用连接将抛出超时异常。设置 waitTimeoutMs ≤ 0，表示一直等待。取值必须小于等于 600000（10 min）。
 
 **返回值**
 
@@ -81,19 +81,19 @@ redisCluster::run(conn, routeKey, argv)
 
 **详情**
 
-在 routeKey 指定的路由节点执行任意 Redis 命令。
+在 *routeKey* 指定的路由节点执行任意 Redis 命令。
 
 注意:
 - 如果 Redis Cluster 设置有密码，需要在运行`redisCluster::connect`时指定密码来获取权限。
-- run 只依据 routeKey 路由。若命令包含多个 key，请确保这些 key 共用相同 hash tag。
+- `run` 只依据 *routeKey* 路由。若命令包含多个 key，请确保这些 key 共用相同 hash tag。
 
 **参数**
 
-**conn** 通过 redisCluster::connect 获得的 Redis Cluster 连接句柄。
+**conn** 通过 `redisCluster::connect` 获得的 Redis Cluster 连接句柄。
 
 **routeKey** STRING 标量。可以是 hash tag 或任意 key。例如，"tag=good{morning}"，"tag:{morning}"，"key={morning}"，"key:{morning}"", "morning"或 {morning} 的路由节点相同。
 
-**argv** STRING 向量。命令及其参数，形如 ["HSET", "profile:{user1}", "name", "kevin"]。长度不能超过4096。
+**argv** STRING 向量。命令及其参数，形如 ["HSET", "profile:{user1}", "name", "kevin"]。长度 ≤ 4096。
 
 **返回值**
 
@@ -185,7 +185,7 @@ redisCluster::batchSet(conn, keys, values, [batchWin=2048], [numThreads=1])
 **详情**
 
 批量设置键值对。自动分槽并使用 pipeline 与多线程（如指定）并发执行。
-当 keys 与 values 为标量时退化为单次 SET。
+当 *keys* 与 *values* 为标量时退化为单次 SET。
 
 注意：建议对包含相同 hash tag 或同槽（slot）的键运行该命令，以最大化单路管线效率。
 
@@ -197,9 +197,9 @@ redisCluster::batchSet(conn, keys, values, [batchWin=2048], [numThreads=1])
 
 **values** STRING 标量或向量。
 
-**batchWin** INT 标量。可选。每次 pipeline 中的命令数。默认 2048。需设置 ≤ 64000。
+**batchWin** INT 标量。可选。每次 pipeline 中的命令数。默认 2048。取值必须小于等于 64000。
 
-**numThreads** INT 标量。可选。并发线程数。默认 1，即不开启多线程。需设置 ≤ 4096。
+**numThreads** INT 标量。可选。并发线程数。默认 1，即不开启多线程。取值必须小于等于 4096。
 
 **返回值**
 
@@ -223,7 +223,7 @@ redisCluster::batchHashSet(conn, ids, fieldData, [batchWin=2048], [numThreads=1]
 
 **详情**
 
-批量执行 Redis 的 HSET 操作。ids 中每个元素是一个键，对应 fieldData 中相应的行。字段名来自 fieldData 的列名，字段值来自对应列名内的值。
+批量执行 Redis 的 HSET 操作。*ids* 中每个元素是一个键，对应 *fieldData* 中相应的行。字段名来自 *fieldData* 的列名，字段值来自对应列名内的值。
 
 注意：建议对包含相同 hash tag 或同槽（slot）的键运行该命令，以最大化单路管线效率。
 
@@ -231,13 +231,13 @@ redisCluster::batchHashSet(conn, ids, fieldData, [batchWin=2048], [numThreads=1]
 
 **conn** 连接句柄。
 
-**ids** STRING 向量。fieldData 中每行对应的键。
+**ids** STRING 向量。*fieldData* 中每行对应的键。
 
-**fieldData** 表。所有列必须为 STRING。每列列名作为 Redis HSET 中的 field，值作为 HSET 中的 value。设置列数 ≤ 1024。
+**fieldData** 表。所有列必须为 STRING。每列列名作为 Redis HSET 中的 field，值作为 HSET 中的 value。列数必须小于等于 1024。
 
-**batchWin** INT 标量。可选。每次 pipeline 中的命令数。默认 2048。需设置 ≤ 64000。
+**batchWin** INT 标量。可选。每次 pipeline 中的命令数。默认 2048。取值必须小于等于 64000。
 
-**numThreads** INT 标量。可选。并发线程数。默认 1，即不开启多线程。需设置 ≤ 4096。
+**numThreads** INT 标量。可选。并发线程数。默认 1，即不开启多线程。取值必须小于等于 4096。
 
 **返回值**
 
@@ -293,8 +293,8 @@ redisCluster::batchPush(conn, keys, values, [rightPush=true], [batchWin=2048], [
 
 **详情**
 
-批量执行 Redis 的 RPUSH 或 LPUSH 操作。keys 中每个键对应一个 values 中字符串向量。
-rightPush 为 true 执行 RPUSH，否则 LPUSH。
+批量执行 Redis 的 RPUSH 或 LPUSH 操作。*keys* 中每个键对应一个 *values* 中字符串向量。
+*rightPush* 为 true 执行 RPUSH，否则 LPUSH。
 
 注意：建议对包含相同 hash tag 或同槽（slot）的键运行该命令，以最大化单路管线效率。
 
@@ -308,9 +308,9 @@ rightPush 为 true 执行 RPUSH，否则 LPUSH。
 
 **rightPush** BOOL 标量。可选。默认 true。
 
-**batchWin** INT 标量。可选。每次 pipeline 中的命令数。默认 2048。需设置 ≤ 64000。
+**batchWin** INT 标量。可选。每次 pipeline 中的命令数。默认 2048。取值必须小于等于 64000。
 
-**numThreads** INT 标量。可选。并发线程数。默认 1，即不开启多线程。需设置 ≤ 4096。
+**numThreads** INT 标量。可选。并发线程数。默认 1，即不开启多线程。取值必须小于等于 4096。
 
 **返回值**
 
@@ -334,7 +334,7 @@ redisCluster::batchDel(conn, keys, [batchWin=2048], [numThreads=1], [useUnlink=t
 
 **详情**
 
-批量删除键值对。useUnlink 设置为 true 时执行异步删除。
+批量删除键值对。*useUnlink* 设置为 true 时执行异步删除。
 
 注意：建议对包含相同 hash tag 或同槽（slot）的键运行该命令，以最大化单路管线效率。
 
@@ -344,9 +344,9 @@ redisCluster::batchDel(conn, keys, [batchWin=2048], [numThreads=1], [useUnlink=t
 
 **keys** STRING 向量。要删除的键向量。
 
-**batchWin** INT 标量。可选。每次 pipeline 中的命令数。默认 2048。需设置 ≤ 64000。
+**batchWin** INT 标量。可选。每次 pipeline 中的命令数。默认 2048。取值必须小于等于 64000。
 
-**numThreads** INT 标量。可选。并发线程数。默认 1，即不开启多线程。需设置 ≤ 4096。
+**numThreads** INT 标量。可选。并发线程数。默认 1，即不开启多线程。取值必须小于等于 4096。
 
 **useUnlink** BOOL 标量。可选。是否开启异步删除。默认 true。
 
@@ -375,7 +375,7 @@ redisCluster::release(conn)
 
 **参数**
 
-**conn** 通过 connect 创建的 Redis Cluster 连接句柄。
+**conn** 通过 `redisCluster::connect` 创建的 Redis Cluster 连接句柄。
 
 **示例**
 
@@ -412,7 +412,7 @@ redisCluster::getHandle(token)
 
 **详情**
 
-获取 token 对应的 Redis Cluster 连接句柄，用于通过 token 找回句柄。
+获取 *token* 对应的 Redis Cluster 连接句柄，用于通过 *token* 找回句柄。
 
 **参数**
 
@@ -420,7 +420,7 @@ redisCluster::getHandle(token)
 
 **返回值**
 
-返回token对应的连接句柄。
+返回 *token* 对应的连接句柄。
 
 **示例**
 
@@ -444,9 +444,9 @@ redisCluster::getHandleStatus()
 
 返回表。列名为 token，address，createdTime。
 
-- token 列是该连接的唯一标识，可通过 redisCluster::getHandle(token) 来获取句柄。
+- token 列是该连接的唯一标识，可通过 `redisCluster::getHandle(token)` 来获取句柄。
 - address 是用来建立 Redis Cluster 连接的节点的 "ip:port" 地址。
-- createdTime 是该连接创建的时间。
+- createdTime 是该连接创建的时间, 格式为 DATETIME。
 
 **示例**
 
