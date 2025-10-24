@@ -371,7 +371,7 @@ redisCluster::release(conn)
 
 **详情**
 
-释放一个 Redis CLuster 连接句柄。
+释放一个 Redis Cluster 连接句柄。
 
 **参数**
 
