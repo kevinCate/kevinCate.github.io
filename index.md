@@ -12,7 +12,11 @@ This site hosts my **personal projects**, and **technical documentation**.
 
 ## Software & Tools
 
-- [DolphinDB Plugins](/docs/ddbPlugin/)
+### DolphinDB Plugin
+
+- [RedisCluster Documentation](/docs/redisCluster/)
+
+- [RedisCluster Tutorial](https://github.com/kevinCate/ddbPlugin-redisCluster-tutorial) 
 
 ## Contact
 
